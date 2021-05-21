@@ -1,0 +1,32 @@
+{
+  "name": "cowinbot",
+  "version": "1.0.0",
+  "description": "A WhatsApp bot for tracking & checking vaccination slots",
+  "main": "bot.js",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "dotenv": "^9.0.2",
+    "eslint-config-airbnb-base": "^14.2.1",
+    "eslint-plugin-import": "^2.23.2",
+    "express": "^4.17.1",
+    "mongoose": "^5.12.9",
+    "node-cron": "^3.0.0",
+    "nodemon": "^2.0.7",
+    "ts-node": "^9.1.1",
+    "twilio": "^3.62.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pathakshashank17/CoWINbot.git"
+  },
+  "author": "Shashank Pathak",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pathakshashank17/CoWINbot/issues"
+  },
+  "homepage": "https://github.com/pathakshashank17/CoWINbot#readme"
+}
