@@ -37,49 +37,45 @@ app.listen(process.env.PORT || 8000, () => {
 });
 
 // Handles incoming messages
-app.post("/incoming", async (req, res) => {
+app.post("/incoming", async (req) => {
 
 	// Parse user query
+	// Key Body & From stores client's message & WhatsApp number respectively
 	const query = req.body.Body.split(' ');
-	var action = query[0];
-	var pinCode = query[1];
-	var clientNumber = req.body.From.split(':')[1];
+	let action = query[0];
+	let pinCode = query[1];
+	let clientNumber = req.body.From.split(':')[1];
 
-	var isValidPincode = checkPincodeValidity(pinCode);
+	let isValidPincode = checkPincodeValidity(pinCode);
 
 	// Create new tracking task
-	if (action === "track" && isValidPincode == true) {
+	if (action === "track" && isValidPincode === true) {
 
 		// Create new task
 		const taskInfo = new Task({ pinCode: pinCode, clientNumber: clientNumber });
 
 		// Save the task
-		taskInfo.save((err) => {
-			if (err) {
-				console.log(err)
-			} else {
-				sendMessage(`Tracking empty vaccination slots for *${pinCode}*`, clientNumber);
-			}
-		});
+		const afterSave = await taskInfo.save();
+		if (afterSave === taskInfo)
+			sendMessage(`Tracking empty vaccination slots for *${pinCode}*`, clientNumber);
 	}
 
 	// Handle checking
-	else if (action === "check" && isValidPincode == true) {
+	else if (action === "check" && isValidPincode === true) {
 		const URL = `https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/calendarByPin?pincode=${pinCode}&date=${DATE}`
 
 		// Send GET request to CoWIN API and process it
-		var response = await axios.get(URL, CONFIG);
+		let response = await axios.get(URL, CONFIG);
 		try {
 			// Cherrypick data, create the message and store them
-			var data = response.data.centers;
-			var messages = data.map((center) => {
-				var sessionsInfo = ``;
+			let data = response.data.centers;
+			let messages = data.map((center) => {
+				let sessionsInfo = ``;
 				center.sessions.forEach((session, index) => {
-					var msg = `\n${index + 1}. ${session.date}:\nDose 1 = ${session.available_capacity_dose1}\nDose 2 = ${session.available_capacity_dose2}\nMin Age = ${session.min_age_limit}\n`;
+					let msg = `\n${index + 1}. ${session.date}:\nDose 1 = ${session.available_capacity_dose1}\nDose 2 = ${session.available_capacity_dose2}\nMin Age = ${session.min_age_limit}\n`;
 					sessionsInfo = sessionsInfo + msg;
 				});
-				var msgTemplate = `\`\`\`Name: ${center.name}\nFee Type: ${center.fee_type}\nSessions: \n${sessionsInfo}\`\`\``;
-				return msgTemplate;
+				return `\`\`\`Name: ${center.name}\nFee Type: ${center.fee_type}\nSessions: \n${sessionsInfo}\`\`\``;
 			})
 			// Send the stored messages
 			sendMessages(messages, clientNumber);
@@ -89,10 +85,9 @@ app.post("/incoming", async (req, res) => {
 	}
 
 	// Remove a tracking task for a given clientNumber & pinCode
-	else if (action === "stop" && isValidPincode == true) {
-		Task.deleteOne({ pinCode: pinCode, clientNumber: clientNumber })
-			.then(sendMessage(`Tracking for ${pinCode} stopped`, clientNumber))
-			.catch(err => console.log(err))
+	else if (action === "stop" && isValidPincode === true) {
+		await Task.deleteOne({ pinCode: pinCode, clientNumber: clientNumber });
+		sendMessage(`Tracking for ${pinCode} stopped`, clientNumber)
 	}
 
 	// Handle invalid input
@@ -100,30 +95,29 @@ app.post("/incoming", async (req, res) => {
 		sendMessage(`I can't understand your query 🙁. Please check that you typed it correctly`, clientNumber);
 });
 
-// Cron task to check availablity for saved tasks
+// Cron task to check availability for saved tasks
 // */30 * * * * -> Every 30th minute
-cron.schedule('* * * * *', () => {
+cron.schedule('*/30 * * * *', () => {
 	console.log("Searching...");
 	Task.find({}, (err, tasks) => {
 		if (!err) {
 			tasks.forEach(async (task) => {
-				var messagesForDiffClients = [];
-				var URL = `https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/calendarByPin?pincode=${task.pinCode}&date=${DATE}`
-				var response = await axios.get(URL, CONFIG)
+				let messagesForDiffClients = [];
+				let URL = `https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/calendarByPin?pincode=${task.pinCode}&date=${DATE}`
+				let response = await axios.get(URL, CONFIG)
 				try {
 					// If any center in the region can administer a dose, inform client
-					var data = response.data.centers;
+					let data = response.data.centers;
 					data.every(center => {
-						var regionCanServe = false;
+						let regionCanServe = false;
 						center.sessions.every(session => {
-							if (session.available_capacity_dose1 != 0 || session.available_capacity_dose2 != 0) {
+							if (session.available_capacity_dose1 !== 0 || session.available_capacity_dose2 !== 0) {
 								regionCanServe = true;
 								return false;
 							}
 							return true;
 						})
-						// TODO - Remember to change this to true before deployment
-						if (regionCanServe == false) {
+						if (regionCanServe === true) {
 							var msg = `A session may be available at ${task.pinCode}. Please visit https://www.cowin.gov.in/home for more details`;
 							messagesForDiffClients.push({
 								message: msg,
